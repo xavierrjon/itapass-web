@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ORGANIZER
+  FAN
+}
+
+enum MatchStatus {
+  AVAILABLE
+  CANCELED
+}
+
+enum PurchaseStatus {
+  CONFIRMED
+  CANCELED
+}
+
+enum TicketStatus {
+  AVAILABLE
+  USED
+  CANCELED
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  matches   Match[]
+  purchases Purchase[]
+  tickets   Ticket[]
+
+  @@map("users")
+}
+
+model Match {
+  id             Int         @id @default(autoincrement())
+  homeTeam       String
+  awayTeam       String
+  date           DateTime
+  time           String
+  location       String
+  ticketPrice    Decimal     @db.Decimal(10, 2)
+  ticketQuantity Int
+  status         MatchStatus @default(AVAILABLE)
+
+  organizerId Int
+  organizer   User @relation(fields: [organizerId], references: [id])
+
+  purchases Purchase[]
+  tickets   Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("matches")
+}
+
+model Purchase {
+  id          Int            @id @default(autoincrement())
+  quantity    Int
+  totalAmount Decimal        @db.Decimal(10, 2)
+  status      PurchaseStatus @default(CONFIRMED)
+
+  fanId Int
+  fan   User @relation(fields: [fanId], references: [id])
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id])
+
+  tickets Ticket[]
+
+  createdAt DateTime @default(now())
+
+  @@map("purchases")
+}
+
+model Ticket {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique
+  status      TicketStatus @default(AVAILABLE)
+  validatedAt DateTime?
+
+  purchaseId Int
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+
+  fanId Int
+  fan   User @relation(fields: [fanId], references: [id])
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("tickets")
+}
