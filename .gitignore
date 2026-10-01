@@ -1,0 +1,33 @@
+# Documentos de trabalho internos (nao vao ao remoto)
+guide.md
+docs/relatorios/
+
+# Dependencias
+node_modules
+
+# Builds
+.next
+build
+dist
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Gerados
+src/generated
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.idea
+.vscode

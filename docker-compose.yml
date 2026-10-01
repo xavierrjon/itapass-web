@@ -1,0 +1,124 @@
+# Ambiente de DESENVOLVIMENTO do ItaPass.
+# Sobe o sistema inteiro: postgres, pgadmin, backend e frontend.
+#
+#   docker compose up -d
+#   docker compose up --build     (apos mexer em package.json / Dockerfile)
+#   docker compose down
+#
+# O codigo-fonte e montado por volume, entao alteracoes no host chegam
+# nos containers com hot reload. O node_modules de cada container fica em
+# volume anonimo para nao ser sobrescrito pelo node_modules do host.
+
+name: itapass
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: itapass-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: itapass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: itapass
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - itapass_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d itapass"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: itapass-pgadmin
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@itapass.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+
+    ports:
+      - "5050:80"
+
+    volumes:
+      - itapass_pgadmin_data:/var/lib/pgadmin
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+    container_name: itapass-backend
+    restart: unless-stopped
+
+    environment:
+      PORT: 7777
+      # Dentro do Compose o host do banco e o nome do service.
+      DATABASE_URL: "postgresql://postgres:itapass@postgres:5432/itapass?schema=public"
+      CORS_ORIGINS: "http://localhost:3000"
+      NODE_ENV: development
+      # Bind mounts em Docker Desktop/macOS exigem polling para o watcher.
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+
+    ports:
+      - "7777:7777"
+
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - ./backend/package.json:/app/package.json
+      - ./backend/prisma.config.ts:/app/prisma.config.ts
+      # Volumes anonimos: dependencias e Prisma Client gerado NAO ficam no
+      # host. Sem isso, o container (root) escreveria arquivos com dono root
+      # dentro de ./backend/src, e o `prisma generate` do host falharia
+      # com EACCES.
+      - /app/node_modules
+      - /app/src/generated
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: itapass-frontend
+    restart: unless-stopped
+
+    environment:
+      # Consumida pelo navegador, portanto o host e o da maquina, nao o service.
+      NEXT_PUBLIC_API_URL: "http://localhost:7777"
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/next.config.ts:/app/next.config.ts
+      - /app/node_modules
+      - /app/.next
+
+    depends_on:
+      - backend
+
+volumes:
+  itapass_postgres_data:
+    # Nome fixo para o volume nao depender do diretorio do compose,
+    # evitando perder o banco quando o projeto e movido de lugar.
+    name: itapass_postgres_data
+  itapass_pgadmin_data:
+    name: itapass_pgadmin_data
