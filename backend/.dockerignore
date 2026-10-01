@@ -1,0 +1,11 @@
+node_modules
+build
+dist
+src/generated
+.env
+.env.local
+*.log
+.git
+.gitignore
+Dockerfile
+.dockerignore
